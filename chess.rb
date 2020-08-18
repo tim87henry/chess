@@ -66,7 +66,7 @@ class Cell
                 x=@xpos+attempt[0]
                 y=@ypos+attempt[1]
                 if x>=0 and x<=7 and y>=0 and y<=7
-                    @moves_list.push([x,y]) if board[x][y].type==0 and board[x][y].set==0
+                    @moves_list.push([x,y]) if (board[x][y].type==0 and board[x][y].set==0 or board[x][y].set + board[@xpos][@ypos].set==3) 
                 end
             end
         when 2,3,5
@@ -76,7 +76,8 @@ class Cell
                     x=@xpos+direction[i][0]
                     y=@ypos+direction[i][1]
                     if x>=0 and x<=7 and y>=0 and y<=7
-                        @moves_list.push([x,y]) if board[x][y].type==0 and board[x][y].set==0
+                        @moves_list.push([x,y]) if (board[x][y].type==0 and board[x][y].set==0 or board[x][y].set + board[@xpos][@ypos].set==3)
+                        i=7 if board[x][y].set + board[@xpos][@ypos].set==3 
                     end
                     i+=1
                 end
@@ -91,11 +92,10 @@ class Chess
     attr_accessor :board
     def initialize
         @board=[]
+        @player=0
         init_board
         display_board
-        @board[3][3].set=1
-        @board[3][3].type=2
-        @board[3][3].possible_moves(@board)
+        play
     end
 
     def init_board
@@ -158,6 +158,48 @@ class Chess
         puts "    a  b  c  d  e  f  g  h"
         puts "\n"
     end
+
+    def play
+        @player=1
+        while game_not_over?
+            puts "Player #{@player} enter your source and destination"
+            puts "Source coin : "
+            src_flag=true
+            while src_flag
+                src=gets.chomp
+                src_flag=false if check_source(src)==true
+            end
+            puts "Destination coin : "
+            dest_flag=true
+            while dest_flag
+                dest=gets.chomp
+                dest_flag=false if check_source(dest)==true
+            end
+            display_board
+            @player==1?@player=2:@player=1
+        end
+    end
+
+    def check_source(src)
+        if src[0].ord<97 or src[0].ord>104 or src[1].to_i<1 or src[1].to_i>8 or src[2]!=nil
+            return false
+        else
+            return true
+        end
+    end
+
+    def check_dest(dest)
+        if dest[0].ord<97 or dest[0].ord>104 or dest[1].to_i<1 or dest[1].to_i>8 or dest[2]!=nil
+            return false
+        else
+            return true
+        end
+    end
+
+    def game_not_over?
+        return true
+    end
+
 end
 
 game=Chess.new
