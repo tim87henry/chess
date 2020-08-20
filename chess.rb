@@ -55,9 +55,20 @@ class Cell
                         [[-1,0],[-2,0],[-3,0],[-4,0],[-5,0],[-6,0],[-7,0]]]
         when 6
             #Pawn's moves
-            @moves_list.push([@xpos,@ypos+1]) if @ypos<7 and board[@xpos][@ypos+1].type==0 and board[@xpos][@ypos+1].set==0
-        else
-            puts "Trojan Horse"
+            newx=[]
+            if @set==1
+                newx.push(@xpos-1)
+                newx.push(@xpos-2) if @xpos==6
+            else
+                newx.push(@xpos+1)
+                newx.push(@xpos+2) if @xpos==1
+            end
+            for x in newx
+                @moves_list.push([x,@ypos]) if x<=7 and x>=0 and board[x][@ypos].type==0 and board[x][@ypos].set==0
+            end
+            @set==1?x=@xpos-1:x=@xpos+1
+            @moves_list.push([x,@ypos+1]) if [0..7].include?x and [0..7].include?@ypos+1 and @set+board[x][@ypos+1].set==3
+            @moves_list.push([x,@ypos-1]) if [0..7].include?x and [0..7].include?@ypos-1 and @set+board[x][@ypos-1].set==3
         end
 
         case @type
@@ -77,13 +88,12 @@ class Cell
                     y=@ypos+direction[i][1]
                     if x>=0 and x<=7 and y>=0 and y<=7
                         @moves_list.push([x,y]) if (board[x][y].type==0 and board[x][y].set==0 or board[x][y].set + board[@xpos][@ypos].set==3)
-                        i=7 if board[x][y].set + board[@xpos][@ypos].set==3 
+                        i=7 if [3,4].include?board[x][y].set + board[@xpos][@ypos].set
                     end
                     i+=1
                 end
             end
         end
-        pp @moves_list
     end
 
 end
@@ -93,6 +103,8 @@ class Chess
     def initialize
         @board=[]
         @player=0
+        @mapping={"a"=>0,"b"=>1,"c"=>2,"d"=>3,"e"=>4,"f"=>5,"g"=>6,"h"=>7,1=>7,2=>6,3=>5,4=>4,5=>3,6=>2,7=>1,8=>0}
+        @reverse_map={0=>"a",1=>"b",2=>"c",3=>"d",4=>"e",5=>"f",6=>"g",7=>"h"}
         init_board
         display_board
         play
@@ -163,41 +175,97 @@ class Chess
         @player=1
         while game_not_over?
             puts "Player #{@player} enter your source and destination"
-            puts "Source coin : "
+            puts "Select coin : "
             src_flag=true
             while src_flag
                 src=gets.chomp
                 src_flag=false if check_source(src)==true
+                puts "Please enter a valid coin" if src_flag==true
             end
-            puts "Destination coin : "
+            print "Options are : "
+            for opt in find_options(src)
+                print opt+" "
+            end
+            puts "\n"
+            puts "Enter destination : "
             dest_flag=true
             while dest_flag
                 dest=gets.chomp
-                dest_flag=false if check_source(dest)==true
+                dest_flag=false if check_dest(src,dest)==true
+                puts "Please enter a valid move" if dest_flag==true
             end
+            make_move(src,dest)
             display_board
             @player==1?@player=2:@player=1
         end
     end
 
     def check_source(src)
-        if src[0].ord<97 or src[0].ord>104 or src[1].to_i<1 or src[1].to_i>8 or src[2]!=nil
+        return false if src.empty?
+        if src[0].ord<97 or src[0].ord>104 or src[1].to_i<1 or src[1].to_i>8 or src[2]!=nil or @board[@mapping[src[1].to_i]][@mapping[src[0]]].set!=@player
             return false
         else
-            return true
+            @board[@mapping[src[1].to_i]][@mapping[src[0]]].possible_moves(@board)
+            if @board[@mapping[src[1].to_i]][@mapping[src[0]]].moves_list.empty?
+                return false
+            else
+                return true
+            end
         end
     end
 
-    def check_dest(dest)
+    def check_dest(src,dest)
+        return false if dest.empty?
         if dest[0].ord<97 or dest[0].ord>104 or dest[1].to_i<1 or dest[1].to_i>8 or dest[2]!=nil
             return false
         else
-            return true
+            @board[@mapping[src[1].to_i]][@mapping[src[0]]].possible_moves(@board)
+            if @board[@mapping[src[1].to_i]][@mapping[src[0]]].moves_list.include?([@mapping[dest[1].to_i],@mapping[dest[0]]])
+                return true
+            end
         end
+        return false
+    end
+
+    def make_move(src,dest)
+        new_set=@board[@mapping[src[1].to_i]][@mapping[src[0]]].set
+        new_type=@board[@mapping[src[1].to_i]][@mapping[src[0]]].type
+        @board[@mapping[src[1].to_i]][@mapping[src[0]]].set=0
+        @board[@mapping[src[1].to_i]][@mapping[src[0]]].type=0
+        @board[@mapping[dest[1].to_i]][@mapping[dest[0]]].set=new_set
+        @board[@mapping[dest[1].to_i]][@mapping[dest[0]]].type=new_type
+    end
+
+    def find_options(src)
+        list=[]
+        for option in @board[@mapping[src[1].to_i]][@mapping[src[0]]].moves_list
+            list.push("#{@reverse_map[option[1]]}#{@mapping[option[0]]}")
+        end
+        return list
     end
 
     def game_not_over?
+        puts "CHECK - Please check your King" if is_check?
         return true
+    end
+
+    def is_check?
+        @player==1?test=2:test=1
+        for row in @board
+            for coin in row
+                if coin.set==test
+                    coin.possible_moves(@board)
+                    for move in coin.moves_list
+                        return true if @board[move[0]][move[1]].type==1
+                    end
+                end
+            end
+        end
+        return false
+    end
+
+    def is_check_mate?
+        return false
     end
 
 end
