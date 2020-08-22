@@ -1,3 +1,5 @@
+require 'yaml'
+
 class Cell
     attr_accessor :xpos
     attr_accessor :ypos
@@ -102,12 +104,26 @@ class Chess
     attr_accessor :board
     def initialize
         @board=[]
-        @player=0
+        @player=1
         @mapping={"a"=>0,"b"=>1,"c"=>2,"d"=>3,"e"=>4,"f"=>5,"g"=>6,"h"=>7,1=>7,2=>6,3=>5,4=>4,5=>3,6=>2,7=>1,8=>0}
         @reverse_map={0=>"a",1=>"b",2=>"c",3=>"d",4=>"e",5=>"f",6=>"g",7=>"h"}
-        init_board
-        display_board
-        play
+        start_game
+    end
+
+    def start_game
+        choice=0
+        while choice<1 or choice>2
+            puts "Welcome. Do you want to \n\n[1] Load the saved game \n[2] Start a new game\n\n"
+            choice=gets.chomp.to_i
+            puts "Enter a valid choice\n\n" if choice<1 or choice>2
+        end
+        if choice==1
+            load_game
+        else
+            init_board
+            display_board
+            play
+        end
     end
 
     def init_board
@@ -172,9 +188,8 @@ class Chess
     end
 
     def play
-        @player=1
         while game_not_over?
-            puts "Player #{@player} enter your source and destination"
+            puts "Player #{@player} enter your source and destination (Press 's' to save)"
             puts "Select coin : "
             src_flag=true
             while src_flag
@@ -202,6 +217,7 @@ class Chess
 
     def check_source(src)
         return false if src.empty?
+        save_game if src[0].ord==115
         if src[0].ord<97 or src[0].ord>104 or src[1].to_i<1 or src[1].to_i>8 or src[2]!=nil or @board[@mapping[src[1].to_i]][@mapping[src[0]]].set!=@player
             return false
         else
@@ -266,6 +282,28 @@ class Chess
 
     def is_check_mate?
         return false
+    end
+
+    def save_game
+        puts "Saving game"
+        save_state={
+            board:@board,
+            player:@player,
+            mapping:@mapping,
+            reverse_map:@reverse_map
+        }
+        File.open("./saved_game.yml","w") {|f| f.write(save_state.to_yaml)}
+        exit
+    end
+
+    def load_game
+        load_state=YAML.load(File.read("./saved_game.yml"))
+        @board=load_state[:board]
+        @player=load_state[:player]
+        @mapping=load_state[:mapping]
+        @reverse_map=load_state[:reverse_map]
+        display_board
+        play
     end
 
 end
