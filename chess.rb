@@ -89,8 +89,8 @@ class Cell
                     x=@xpos+direction[i][0]
                     y=@ypos+direction[i][1]
                     if x>=0 and x<=7 and y>=0 and y<=7
-                        @moves_list.push([x,y]) if (board[x][y].type==0 and board[x][y].set==0 or board[x][y].set + board[@xpos][@ypos].set==3)
-                        i=7 if [3,4].include?board[x][y].set + board[@xpos][@ypos].set
+                        @moves_list.push([x,y]) if (board[x][y].type==0 and board[x][y].set==0 or (board[x][y].set + board[@xpos][@ypos].set==3))
+                        i=7 if [3,4].include?board[x][y].set + board[@xpos][@ypos].set or (board[x][y].set == board[@xpos][@ypos].set)
                     end
                     i+=1
                 end
@@ -105,7 +105,7 @@ class Chess
     def initialize
         @board=[]
         @player=1
-        @mapping={"a"=>0,"b"=>1,"c"=>2,"d"=>3,"e"=>4,"f"=>5,"g"=>6,"h"=>7,1=>7,2=>6,3=>5,4=>4,5=>3,6=>2,7=>1,8=>0}
+        @mapping={"a"=>0,"b"=>1,"c"=>2,"d"=>3,"e"=>4,"f"=>5,"g"=>6,"h"=>7,0=>8,1=>7,2=>6,3=>5,4=>4,5=>3,6=>2,7=>1,8=>0}
         @reverse_map={0=>"a",1=>"b",2=>"c",3=>"d",4=>"e",5=>"f",6=>"g",7=>"h"}
         start_game
     end
@@ -262,7 +262,11 @@ class Chess
 
     def game_not_over?
         puts "CHECK - Please check your King" if is_check?
-        return true
+        if is_check_mate?
+            return false
+        else
+            return true
+        end
     end
 
     def is_check?
@@ -281,7 +285,92 @@ class Chess
     end
 
     def is_check_mate?
-        return false
+        save_state={
+            board:@board,
+        }
+        File.open("./temp_init.yml","w") {|f| f.write(save_state.to_yaml)}
+        for row in @board
+            for coin in row
+                if coin.set==@player
+                    coin.possible_moves(@board)
+                    for turn in coin.moves_list
+                        temp_move([coin.xpos,coin.ypos],turn)
+                        save_state={
+                            board:@board,
+                        }
+                        #File.delete("./temp.yml") if File.exist?("./temp.yml")
+                        #File.open("./temp.yml","w") {|f| f.write(save_state.to_yaml)}
+                        if !king_locked?
+                            puts "Not locked due to #{coin.set} and #{coin.type} to #{turn}"
+                            load_state=nil
+                            load_state=YAML.load(File.read("./temp_init.yml"))
+                            @board=load_state[:board]
+                            return false
+                        end
+                    end
+                end
+                load_state=nil
+                load_state=YAML.load(File.read("./temp_init.yml"))
+                @board=load_state[:board]
+            end
+        end
+        load_state=YAML.load(File.read("./temp_init.yml"))
+        @board=load_state[:board]
+        return true
+    end
+
+    def temp_move(src,dest)
+        temp_set=@board[src[0]][src[1]].set
+        temp_type=@board[src[0]][src[1]].type
+        @board[src[0]][src[1]].set=0
+        @board[src[0]][src[1]].type=0
+        @board[dest[0]][dest[1]].set=temp_set
+        @board[dest[0]][dest[1]].type=temp_type 
+    end
+
+    def king_locked?
+        temp_board=@board
+        test=@player
+        kings_moves=[]
+        king_location=[]
+        for row in @board
+            for coin in row
+                if coin.set==test and coin.type==1
+                    kings_moves.push([coin.xpos,coin.ypos])
+                    king_location=[coin.xpos,coin.ypos]
+                    coin.possible_moves(@board)
+                    for move in coin.moves_list
+                        kings_moves.push(move)
+                    end
+                end
+            end
+        end
+        puts "King's location is #{king_location} and moves are #{kings_moves}"
+        @player==1?test=2:test=1
+        #rival_moves=[]
+        for move in kings_moves
+            temp_move(king_location,move)
+            for row in @board
+                for coin in row
+                    if coin.set==test
+                        rival_moves=[]
+                        coin.possible_moves(@board)
+                        puts "Rival coin is #{coin.type}, at #{[coin.xpos,coin.ypos]}, and moves are #{coin.moves_list}"
+                        for turn in coin.moves_list
+                            rival_moves.push(turn)
+                        end
+                    end
+                    unless coin.set==test and rival_moves.include?move
+                        return false
+                    end
+                end    
+            end
+            #unless rival_moves.include?move
+            #    return false
+            #end
+        end
+        @board=temp_board
+        return true
     end
 
     def save_game
